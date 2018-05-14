@@ -394,10 +394,17 @@ function drupalbugsnatcher_smsNotification($message)
 {
     $smsActive = variable_get('drupalbugsnatcher_sms_active', 0);
     $smsApikey = variable_get('drupalbugsnatcher_sms_apikey', '');
-    $smsNumber = variable_get('drupalbugsnatcher_sms_number', '');
+    $smsNumber = str_replace(' ', '', variable_get('drupalbugsnatcher_sms_number', ''));
 
     if ($smsActive === 1 && !empty($smsApikey) && !empty($smsNumber)) {
-        // do stuff
+        $content = urlencode('An exception occured on site '.variable_get('site_name', 'Default').'.');
+        $url = sprintf(
+            'https://api.clockworksms.com/http/send.aspx?key=%s&to=%s&content=%s&from=BugSnatcher',
+            $smsApikey,
+            $smsNumber,
+            $content
+        );
+        file_get_contents($url);
     }
 }
 
