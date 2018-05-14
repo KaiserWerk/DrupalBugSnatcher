@@ -25,6 +25,14 @@ function drupalbugsnatcher_menu() {
  */
 function drupalbugsnatcher_form($form, &$form_state) {
 
+    /* save to db */
+    $form['drupalbugsnatcher_log_active'] = [
+        '#type' => 'checkbox',
+        '#title' => t('Enable logging?'),
+        '#default_value' => variable_get('drupalbugsnatcher_log_active', 0),
+        '#description' => t('Whether logging errors and eceptions to database/file is enabled or not.')
+    ];
+
     /* email notifications */
     $form['drupalbugsnatcher_email_active'] = [
         '#type' => 'checkbox',
