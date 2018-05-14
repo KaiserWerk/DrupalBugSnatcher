@@ -52,6 +52,12 @@ function drupalbugsnatcher_schema() {
                 'type' => 'int',
                 'default' => 0,
             ),
+            'e_file' => array(
+                'description' => 'The file name where the exception occured.',
+                'type' => 'varchar',
+                'length' => 1000,
+                'default' => '',
+            ),
             'e_line' => array(
                 'description' => 'The line of the file the exception occured in.',
                 'type' => 'int',
