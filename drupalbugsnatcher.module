@@ -201,8 +201,8 @@ function drupalbugsnatcher_error_handler($errno, $errstr, $errfile, $errline)
  */
 function drupalbugsnatcher_exception_handler($exception)
 {
-    $logfile = __DIR__.'/dbs_exceptions.log';
-    file_put_contents($logfile, 'BugSnatcher: an exception occured!'.PHP_EOL, FILE_APPEND);
+    #$logfile = __DIR__.'/dbs_exceptions.log';
+    #file_put_contents($logfile, 'BugSnatcher: an exception occured!'.PHP_EOL, FILE_APPEND);
 
     $class = get_class($exception);
     $code = $exception->getCode();
