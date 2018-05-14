@@ -135,13 +135,14 @@ function drupalbugsnatcher_form($form, &$form_state) {
 function drupalbugsnatcher_boot()
 {
     if (
+        variable_get('drupalbugsnatcher_log_active') === 1 ||
         variable_get('drupalbugsnatcher_email_active') === 1 ||
         variable_get('drupalbugsnatcher_slack_active') === 1 ||
         variable_get('drupalbugsnatcher_stride_active') === 1 ||
         variable_get('drupalbugsnatcher_sms_active') === 1
     ) {
-        set_exception_handler('drupalbugsnatcher_exception_handler');
         set_error_handler('drupalbugsnatcher_error_handler');
+        set_exception_handler('drupalbugsnatcher_exception_handler');
         #trigger_error('Setting BugSnatcher error and exception handler');
     }
 }
@@ -159,32 +160,38 @@ function drupalbugsnatcher_error_handler($errno, $errstr, $errfile, $errline)
     #$logfile = __DIR__.'/drupalbugsnatcher_errors.log';
     #file_put_contents($logfile, 'BugSnatcher: an error occured!'.PHP_EOL, FILE_APPEND);
 
-    $message = '';
+    $textline = '';
 
     switch ($errno) {
         case E_USER_ERROR:
-            $message.= 'ERROR ['.$errno.'] '.$errstr;
-            $message.= ' Fatal error on line '.$errline.' in file '.$errfile;
-            $message.= ', PHP ' . PHP_VERSION . ' (' . PHP_OS . ')';
+            $textline.= 'ERROR ['.$errno.'] '.$errstr;
+            $textline.= ' Fatal error on line '.$errline.' in file '.$errfile;
+            $textline.= ', PHP ' . PHP_VERSION . ' (' . PHP_OS . ')';
             break;
 
         case E_USER_WARNING:
-            $message.= 'WARNING ['.$errno.'] '.$errstr;
+            $textline.= 'WARNING ['.$errno.'] '.$errstr;
             break;
 
         case E_USER_NOTICE:
-            $message.= 'NOTICE ['.$errno.'] '.$errstr;
+            $textline.= 'NOTICE ['.$errno.'] '.$errstr;
             break;
 
         default:
-            $message.= 'Unknown error type: ['.$errno.'] '.$errstr;
+            $textline.= 'Unknown error type: ['.$errno.'] '.$errstr;
             break;
     }
-
-    drupalbugsnatcher_emailNotification($message);
-    drupalbugsnatcher_slackNotification($message);
-    drupalbugsnatcher_strideNotification($message);
-    drupalbugsnatcher_smsNotification($message);
+    drupalbugsnatcher_log([
+        'error_type' => 0,
+        'number' => $errno,
+        'file' => $errfile,
+        'line' => $errline,
+        'string' => $errstr,
+    ]);
+    drupalbugsnatcher_emailNotification($textline);
+    drupalbugsnatcher_slackNotification($textline);
+    drupalbugsnatcher_strideNotification($textline);
+    drupalbugsnatcher_smsNotification($textline);
 }
 
 /**
@@ -194,16 +201,37 @@ function drupalbugsnatcher_error_handler($errno, $errstr, $errfile, $errline)
  */
 function drupalbugsnatcher_exception_handler($exception)
 {
-    #$logfile = __DIR__.'/drupalbugsnatcher_exceptions.log';
-    #file_put_contents($logfile, 'BugSnatcher: an exception occured!'.PHP_EOL, FILE_APPEND);
+    $logfile = __DIR__.'/dbs_exceptions.log';
+    file_put_contents($logfile, 'BugSnatcher: an exception occured!'.PHP_EOL, FILE_APPEND);
 
-    $message = sprintf('An exception occured on site %s: %s', variable_get('site_name', 'Default'),
-        'Uncaught '.get_class($exception).', code: ' . $exception->getCode() . ' on line '.$exception->getLine().', Message: ' . htmlentities($exception->getMessage()));
+    $class = get_class($exception);
+    $code = $exception->getCode();
+    $line = $exception->getLine();
+    $file = $exception->getFile();
+    $message = htmlentities($exception->getMessage());
 
-    drupalbugsnatcher_emailNotification($message);
-    drupalbugsnatcher_slackNotification($message);
-    drupalbugsnatcher_strideNotification($message);
-    drupalbugsnatcher_smsNotification($message);
+    $textline = sprintf(
+        'An exception occured on site %s: Uncaught %s, code %s on line %s in file %s, Message: %s',
+        variable_get('site_name', 'Default'),
+        $class,
+        $code,
+        $line,
+        $file,
+        $message
+    );
+
+    drupalbugsnatcher_log([
+        'error_type' => 1,
+        'class' => $class,
+        'code' => $code,
+        'file' => $file,
+        'line' => $line,
+        '$message' => $message,
+    ]);
+    drupalbugsnatcher_emailNotification($textline);
+    drupalbugsnatcher_slackNotification($textline);
+    drupalbugsnatcher_strideNotification($textline);
+    drupalbugsnatcher_smsNotification($textline);
 }
 
 /**
@@ -214,13 +242,13 @@ function drupalbugsnatcher_exception_handler($exception)
  */
 function drupalbugsnatcher_log(Array $options)
 {
-    if ($_SERVER["HTTP_X_FORWARDED_FOR"]) {
-        $ip = $_SERVER["HTTP_X_FORWARDED_FOR"];
+    if (isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+        $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
     } else {
-        $ip = $_SERVER["REMOTE_ADDR"];
+        $ip = $_SERVER['REMOTE_ADDR'];
     }
 
-    if ($options['error_type'] === 'error') {
+    if ($options['error_type'] === 0) {
         $datarow = sprintf(
             '[%s] Error %s occured in file %s on line %s.: %s',
             date('Y-m-d H:i:s'),
@@ -229,50 +257,46 @@ function drupalbugsnatcher_log(Array $options)
             $options['line'],
             $options['string']
         ).PHP_EOL;
-        // write log it its local
+        // write log only if local
         if (in_array($ip, ['127.0.0.1', '::1'])) {
             file_put_contents(__DIR__.'/logs/dbs_errors.log', $datarow, FILE_APPEND);
         }
 
         db_insert('dbs_records')
             ->fields([
-                'err_type' => 'error',
+                'err_type' => 0,
                 'err_no' => $options['number'],
-                'err_string' => $options['string'],
+                'err_str' => $options['string'],
                 'err_file' => $options['file'],
                 'err_line' => $options['line'],
             ])
             ->execute();
-    } else {
+    } elseif ($options['error_type'] === 1) {
         $datarow = sprintf(
-               '[%s] Exception in %s with number %s occured in file %s on line %s.: %s',
+               '[%s] Exception in %s with code %s occured in file %s on line %s.: %s',
                 date('Y-m-d H:i:s'),
                 $options['class'],
-                $options['number'],
+                $options['code'],
                 $options['file'],
                 $options['line'],
                 $options['message']
             ).PHP_EOL;
-        // write log it its local
+        // write log only if local
         if (in_array($ip, ['127.0.0.1', '::1'])) {
             file_put_contents(__DIR__.'/logs/dbs_exceptions.log', $datarow, FILE_APPEND);
         }
 
         db_insert('dbs_records')
             ->fields([
-                'err_type' => 'exception',
+                'err_type' => 1,
                 'e_class' => $options['class'],
-                'e_no' => $options['number'],
-                'e_string' => $options['string'],
+                'e_code' => $options['number'],
+                'e_message' => $options['string'],
                 'e_file' => $options['file'],
                 'e_line' => $options['line'],
             ])
             ->execute();
     }
-
-
-    // 2. log to db
-
 }
 
 /**
