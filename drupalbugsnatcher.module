@@ -263,7 +263,8 @@ function drupalbugsnatcher_log(Array $options)
             file_put_contents(__DIR__.'/logs/dbs_errors.log', $datarow, FILE_APPEND);
         }
 
-        db_insert('dbs_records')
+        try {
+            db_insert('dbs_records')
             ->fields([
                 'err_type' => 0,
                 'err_no' => $options['number'],
@@ -272,6 +273,9 @@ function drupalbugsnatcher_log(Array $options)
                 'err_line' => $options['line'],
             ])
             ->execute();
+        } catch (\Exception $e) {
+            echo $e->getMessage();
+        }
     } elseif ($options['error_type'] === 1) {
         $datarow = sprintf(
                '[%s] Exception in %s with code %s occured in file %s on line %s.: %s',
@@ -287,16 +291,20 @@ function drupalbugsnatcher_log(Array $options)
             file_put_contents(__DIR__.'/logs/dbs_exceptions.log', $datarow, FILE_APPEND);
         }
 
-        db_insert('dbs_records')
+        try {
+            db_insert('dbs_records')
             ->fields([
                 'err_type' => 1,
                 'e_class' => $options['class'],
-                'e_code' => $options['number'],
-                'e_message' => $options['string'],
+                'e_code' => $options['code'],
+                'e_message' => $options['message'],
                 'e_file' => $options['file'],
                 'e_line' => $options['line'],
             ])
             ->execute();
+        } catch (\Exception $e) {
+            echo $e->getMessage();
+        }
     }
 }
 
