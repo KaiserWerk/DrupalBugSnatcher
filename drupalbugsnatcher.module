@@ -30,7 +30,8 @@ function drupalbugsnatcher_form($form, &$form_state) {
         '#type' => 'checkbox',
         '#title' => t('Enable logging?'),
         '#default_value' => variable_get('drupalbugsnatcher_log_active', 0),
-        '#description' => t('Whether logging errors and eceptions to database/file is enabled or not.')
+        '#description' => t('Whether logging errors and eceptions to database/file is enabled or not. 
+        This can enabled/disabled independently from any notification option.')
     ];
 
     /* email notifications */
