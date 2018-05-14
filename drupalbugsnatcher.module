@@ -227,7 +227,7 @@ function drupalbugsnatcher_exception_handler($exception)
         'code' => $code,
         'file' => $file,
         'line' => $line,
-        '$message' => $message,
+        'message' => $message,
     ]);
     drupalbugsnatcher_emailNotification($textline);
     drupalbugsnatcher_slackNotification($textline);
@@ -316,9 +316,19 @@ function drupalbugsnatcher_emailNotification($message)
     $emailActive = variable_get('drupalbugsnatcher_email_active', 0);
     $email = variable_get('drupalbugsnatcher_email', '');
 
-
     if ($emailActive === 1 && !empty($email)) {
-        // mail();
+
+        $message = 'Something went wrong. Please contact site administrator.';
+        // Send the email.
+        $params = array(
+            'subject' => t('[Status] - Server is Down'),
+            'body' => check_markup(
+                t($message),
+                'plain_text'
+            ),
+        );
+        drupal_mail('bugsnatcher', 'any_key', $email, language_default(), $params, variable_get('site_mail', 'from@drupalbugsnatcher'), true);
+
     }
 }
 
@@ -409,28 +419,11 @@ function drupalbugsnatcher_smsNotification($message)
 }
 
 
-function drupalbugsnatcher_mail($key, &$message, $params, $to) {
-    /*$headers = array(
-        'MIME-Version' => '1.0',
-        'Content-Type' => 'text/html; charset=UTF-8; format=flowed',
-        'Content-Transfer-Encoding' => '8Bit',
-        'X-Mailer' => 'Drupal'
-    );
-    foreach ($headers as $key => $value) {
-        $message['headers'][$key] = $value;
+function drupalbugsnatcher_mail($key, &$message, $params) {
+    switch ($key) {
+        case 'any_key':
+            $message['subject'] = $params['subject'];
+            $message['body'][] = $params['body'];
+            break;
     }
-    $message['subject'] = $params['subject'];
-    $message['body'] = $params['body'];
-
-
-    $from = 'test@example.com';
-    $body = 'New Email Sent = ';
-
-    $params = array(
-        'body' => $body,
-        'subject' => 'This is a subject',
-    );
-
-    drupal_mail('somemodule', $key, $to, language_default(), $params, $from, true);
-    */
 }
