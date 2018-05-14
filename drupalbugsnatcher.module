@@ -1,0 +1,321 @@
+<?php
+
+/**
+ * Implements hook_menu().
+ */
+function drupalbugsnatcher_menu() {
+    $items = array();
+
+    $items['admin/config/content/drupalbugsnatcher'] = array(
+        'title' => 'BugSnatcher',
+        'description' => 'Configuration for BugSnatcher module',
+        'page callback' => 'drupal_get_form',
+        'page arguments' => array('drupalbugsnatcher_form'),
+        'access arguments' => array('access administration pages'),
+        'type' => MENU_NORMAL_ITEM,
+    );
+
+    return $items;
+}
+
+/**
+ * Page callback: Current posts settings
+ *
+ * @see current_posts_menu()
+ */
+function drupalbugsnatcher_form($form, &$form_state) {
+
+    /* email notifications */
+    $form['drupalbugsnatcher_email_active'] = [
+        '#type' => 'checkbox',
+        '#title' => t('Enable email notifications?'),
+        '#default_value' => variable_get('drupalbugsnatcher_email_active', 0),
+        '#description' => t('Whether email notifications are enabled or not.')
+    ];
+
+    $form['drupalbugsnatcher_email'] = [
+        '#type' => 'textfield',
+        '#title' => t('Email addresses'),
+        '#default_value' => variable_get('drupalbugsnatcher_email', ''),
+        '#size' => 80,
+        '#description' => t('Please supply a comma-separated list of valid email addresses.'),
+    ];
+
+    /* slack notifications */
+    $form['drupalbugsnatcher_slack_active'] = [
+        '#type' => 'checkbox',
+        '#title' => t('Enable Slack notifications?'),
+        '#default_value' => variable_get('drupalbugsnatcher_slack_active', 0),
+        '#description' => t('Whether Slack notifications are enabled or not.')
+    ];
+
+    $form['drupalbugsnatcher_slack_apikey'] = [
+        '#type' => 'textfield',
+        '#title' => t('Slack API key'),
+        '#default_value' => variable_get('drupalbugsnatcher_slack_apikey', ''),
+        '#size' => 80,
+        '#description' => t('Please enter your Slack API key.'),
+    ];
+
+    $form['drupalbugsnatcher_slack_channel'] = [
+        '#type' => 'textfield',
+        '#title' => t('Slack channel'),
+        '#default_value' => variable_get('drupalbugsnatcher_slack_channel', ''),
+        '#size' => 80,
+        '#description' => t('Please enter the #channel.'),
+    ];
+
+    /* stride notifications */
+    $form['drupalbugsnatcher_stride_active'] = [
+        '#type' => 'checkbox',
+        '#title' => t('Enable Stride notifications?'),
+        '#default_value' => variable_get('drupalbugsnatcher_stride_active', 0),
+        '#description' => t('Whether Stride notifications are enabled or not.')
+    ];
+
+    $form['drupalbugsnatcher_stride_bearer_token'] = [
+        '#type' => 'textfield',
+        '#title' => t('Stride Bearer Token'),
+        '#default_value' => variable_get('drupalbugsnatcher_stride_bearer_token', ''),
+        '#size' => 80,
+        '#description' => t('Please enter your Stride Bearer Token.'),
+    ];
+
+    $form['drupalbugsnatcher_stride_cloud_id'] = [
+        '#type' => 'textfield',
+        '#title' => t('Stride Cloud ID'),
+        '#default_value' => variable_get('drupalbugsnatcher_stride_cloud_id', ''),
+        '#size' => 80,
+        '#description' => t('Please enter your Stride Cloud ID.'),
+    ];
+
+    $form['drupalbugsnatcher_stride_conversation_id'] = [
+        '#type' => 'textfield',
+        '#title' => t('Stride Conversation ID'),
+        '#default_value' => variable_get('drupalbugsnatcher_stride_conversation_id', ''),
+        '#size' => 80,
+        '#description' => t('Please enter your Stride Conversation ID.'),
+    ];
+
+    /* sms notifications */
+    $form['drupalbugsnatcher_sms_active'] = [
+        '#type' => 'checkbox',
+        '#title' => t('Enable SMS notifications?'),
+        '#default_value' => variable_get('drupalbugsnatcher_sms_active', 0),
+        '#description' => t('Whether SMS notifications are enabled or not.')
+    ];
+
+    $form['drupalbugsnatcher_sms_apikey'] = [
+        '#type' => 'textfield',
+        '#title' => t('Clockwork API Key'),
+        '#default_value' => variable_get('drupalbugsnatcher_sms_apikey', ''),
+        '#size' => 80,
+        '#description' => t('Please enter your Clockwork API key.'),
+    ];
+
+    $form['drupalbugsnatcher_sms_number'] = [
+        '#type' => 'textfield',
+        '#title' => t('SMS Number'),
+        '#default_value' => variable_get('drupalbugsnatcher_sms_number', ''),
+        '#size' => 80,
+        '#description' => t('Please enter your mobile phone numbers, with internation country code, separated with a comma.'),
+    ];
+
+    return system_settings_form($form);
+}
+
+function drupalbugsnatcher_boot()
+{
+    if (
+        variable_get('drupalbugsnatcher_email_active') === 1 ||
+        variable_get('drupalbugsnatcher_slack_active') === 1 ||
+        variable_get('drupalbugsnatcher_stride_active') === 1 ||
+        variable_get('drupalbugsnatcher_sms_active') === 1
+    ) {
+        set_exception_handler('drupalbugsnatcher_exception_handler');
+        set_error_handler('drupalbugsnatcher_error_handler');
+        #trigger_error('Setting BugSnatcher error and exception handler');
+    }
+}
+
+/**
+ * Error handler for BugSnatcher
+ *
+ * @param $errno
+ * @param $errstr
+ * @param $errfile
+ * @param $errline
+ */
+function drupalbugsnatcher_error_handler($errno, $errstr, $errfile, $errline)
+{
+    #$logfile = __DIR__.'/drupalbugsnatcher_errors.log';
+    #file_put_contents($logfile, 'BugSnatcher: an error occured!'.PHP_EOL, FILE_APPEND);
+
+    $message = '';
+
+    switch ($errno) {
+        case E_USER_ERROR:
+            $message.= 'ERROR ['.$errno.'] '.$errstr;
+            $message.= ' Fatal error on line '.$errline.' in file '.$errfile;
+            $message.= ', PHP ' . PHP_VERSION . ' (' . PHP_OS . ')';
+            break;
+
+        case E_USER_WARNING:
+            $message.= 'WARNING ['.$errno.'] '.$errstr;
+            break;
+
+        case E_USER_NOTICE:
+            $message.= 'NOTICE ['.$errno.'] '.$errstr;
+            break;
+
+        default:
+            $message.= 'Unknown error type: ['.$errno.'] '.$errstr;
+            break;
+    }
+
+    drupalbugsnatcher_emailNotification($message);
+    drupalbugsnatcher_slackNotification($message);
+    drupalbugsnatcher_strideNotification($message);
+    drupalbugsnatcher_smsNotification($message);
+}
+
+/**
+ * Exception handler for BugSnatcher
+ *
+ * @param $exception
+ */
+function drupalbugsnatcher_exception_handler($exception)
+{
+    #$logfile = __DIR__.'/drupalbugsnatcher_exceptions.log';
+    #file_put_contents($logfile, 'BugSnatcher: an exception occured!'.PHP_EOL, FILE_APPEND);
+
+    $message = sprintf('An exception occured on site %s: %s', variable_get('site_name', 'Default'),
+        'Uncaught '.get_class($exception).', code: ' . $exception->getCode() . ' on line '.$exception->getLine().', Message: ' . htmlentities($exception->getMessage()));
+
+    drupalbugsnatcher_emailNotification($message);
+    drupalbugsnatcher_slackNotification($message);
+    drupalbugsnatcher_strideNotification($message);
+    drupalbugsnatcher_smsNotification($message);
+}
+
+
+
+/**
+ * Sends an email with error details
+ */
+function drupalbugsnatcher_emailNotification($message)
+{
+    $emailActive = variable_get('drupalbugsnatcher_email_active', 0);
+    $email = variable_get('drupalbugsnatcher_email', '');
+
+
+    if ($emailActive === 1 && !empty($email)) {
+        // mail();
+    }
+}
+
+function drupalbugsnatcher_slackNotification($message)
+{
+    $slackActive = variable_get('drupalbugsnatcher_slack_active', 0);
+    $slackApikey = variable_get('drupalbugsnatcher_slack_apikey', '');
+    $slackChannel = variable_get('drupalbugsnatcher_slack_channel', '');
+
+    if ($slackActive === 1 && !empty($slackApikey) && !empty($slackChannel)) {
+
+        $ch = curl_init('https://slack.com/api/chat.postMessage');
+        $data = http_build_query([
+            'token' => $slackApikey,
+            'channel' => $slackChannel,
+            'text' => $message,
+            'username' => variable_get('site_name', 'UnknownSite') . 'BugSnatcher Bot',
+        ]);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        //curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        $result = curl_exec($ch);
+        curl_close($ch);
+    }
+}
+
+function drupalbugsnatcher_strideNotification($message)
+{
+    $strideActive = variable_get('drupalbugsnatcher_stride_active', 0);
+    $strideBearerToken = variable_get('drupalbugsnatcher_stride_bearer_token', '');
+    $strideCloudId = variable_get('drupalbugsnatcher_stride_cloud_id', '');
+    $strideConversationId = variable_get('drupalbugsnatcher_stride_conversation_id', '');
+
+    if ($strideActive === 1 && !empty($strideBearerToken) && !empty($strideCloudId) && !empty($strideConversationId)) {
+
+        $params = array(
+            'body' => array(
+                'version' => 1,
+                'type' => 'doc',
+                'content' => array(
+                    array(
+                        'type' => 'paragraph',
+                        'content' => array(
+                            array(
+                                'type' => 'text',
+                                'text' => $message,
+                            )
+                        )
+                    )
+                )
+            )
+        );
+
+        $url = sprintf('https://api.atlassian.com/site/%s/conversation/%s/message',
+            $strideCloudId, $strideConversationId);
+
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($params));
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+            'Content-Type: application/json',
+            'Authorization: Bearer '.$strideBearerToken
+        ));
+
+        $res = curl_exec($ch);
+        curl_close($ch);
+    }
+}
+
+function drupalbugsnatcher_smsNotification($message)
+{
+    $smsActive = variable_get('drupalbugsnatcher_sms_active', 0);
+    $smsApikey = variable_get('drupalbugsnatcher_sms_apikey', '');
+    $smsNumber = variable_get('drupalbugsnatcher_sms_number', '');
+
+    if ($smsActive === 1 && !empty($smsApikey) && !empty($smsNumber)) {
+        // do stuff
+    }
+}
+
+
+function drupalbugsnatcher_mail($key, &$message, $params, $to) {
+    /*$headers = array(
+        'MIME-Version' => '1.0',
+        'Content-Type' => 'text/html; charset=UTF-8; format=flowed',
+        'Content-Transfer-Encoding' => '8Bit',
+        'X-Mailer' => 'Drupal'
+    );
+    foreach ($headers as $key => $value) {
+        $message['headers'][$key] = $value;
+    }
+    $message['subject'] = $params['subject'];
+    $message['body'] = $params['body'];
+
+
+    $from = 'test@example.com';
+    $body = 'New Email Sent = ';
+
+    $params = array(
+        'body' => $body,
+        'subject' => 'This is a subject',
+    );
+
+    drupal_mail('somemodule', $key, $to, language_default(), $params, $from, true);
+    */
+}
