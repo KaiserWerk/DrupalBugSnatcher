@@ -1,0 +1,77 @@
+<?php
+
+function drupalbugsnatcher_schema() {
+    $schema['dbs_records'] = array(
+        'description' => 'The base table for BugSnatcher error and exceptions logs.',
+        'fields' => array(
+            'id' => array(
+                'description' => 'The primary identifier for a node.',
+                'type' => 'serial',
+                'unsigned' => TRUE,
+                'not null' => TRUE,
+                'size' => 'big',
+            ),
+            'err_type' => array(
+                'description' => '1=error, 2=exception',
+                'type' => 'int',
+                'unsigned' => TRUE,
+                'not null' => TRUE,
+                'default' => 2,
+            ),
+            'err_no' => array(
+                'description' => 'The error number.',
+                'type' => 'int',
+                'default' => 0,
+            ),
+            'err_str' => array(
+                'description' => 'The error string.',
+                'type' => 'varchar',
+                'length' => 512,
+                'default' => '',
+            ),
+            'err_file' => array(
+                'description' => 'The file the error occured in.',
+                'type' => 'varchar',
+                'length' => 512,
+                'default' => '',
+            ),
+            'err_line' => array(
+                'description' => 'The line in the file the error occured in.',
+                'type' => 'int',
+                'default' => 0,
+            ),
+
+            'e_class' => array(
+                'description' => 'The class name of the exception.',
+                'type' => 'varchar',
+                'length' => 255,
+                'default' => '',
+            ),
+            'e_code' => array(
+                'description' => 'The exception code.',
+                'type' => 'int',
+                'default' => 0,
+            ),
+            'e_line' => array(
+                'description' => 'The line of the file the exception occured in.',
+                'type' => 'int',
+                'default' => 0,
+            ),
+            'e_message' => array(
+                'description' => 'The exception message.',
+                'type' => 'varchar',
+                'length' => 1000,
+                'default' => '',
+            ),
+        ),
+        'primary key' => array(
+            'id',
+        ),
+    );
+    return $schema;
+}
+
+function example_uninstall()
+{
+    $result = db_query("DROP TABLE IF EXISTS dbs_records");
+}
